@@ -100,8 +100,12 @@ def get_video_info(url: str):
     is_live = False
     title = "YouTube Feed"
     
-    # Safe is_live check
-    cmd_live = ['yt-dlp', '--no-cache-dir', '--print', '%(is_live)s', '--no-warnings', url]
+    # Safe is_live check with embedded and android client extractors
+    cmd_live = [
+        'yt-dlp', '--no-cache-dir', 
+        '--extractor-args', 'youtube:player-client=web_embedded,android', 
+        '--print', '%(is_live)s', '--no-warnings', url
+    ]
     try:
         res = subprocess.run(cmd_live, capture_output=True, text=True, encoding='utf-8')
         output = res.stdout.strip().lower()
@@ -110,7 +114,11 @@ def get_video_info(url: str):
         print(f"Warning: failed to fetch is_live status for {url}: {e}")
         
     # Safe title check
-    cmd_title = ['yt-dlp', '--no-cache-dir', '--print', '%(title)s', '--no-warnings', url]
+    cmd_title = [
+        'yt-dlp', '--no-cache-dir', 
+        '--extractor-args', 'youtube:player-client=web_embedded,android', 
+        '--print', '%(title)s', '--no-warnings', url
+    ]
     try:
         res = subprocess.run(cmd_title, capture_output=True, text=True, encoding='utf-8')
         title_out = res.stdout.strip()
@@ -123,7 +131,11 @@ def get_video_info(url: str):
     return is_live, title
 
 def get_direct_audio_url(url: str) -> str:
-    cmd = ['yt-dlp', '--no-cache-dir', '-g', '-f', 'bestaudio', url]
+    cmd = [
+        'yt-dlp', '--no-cache-dir', 
+        '--extractor-args', 'youtube:player-client=web_embedded,android', 
+        '-g', '-f', 'bestaudio', url
+    ]
     try:
         res = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
         if res.returncode == 0 and res.stdout.strip():
@@ -132,8 +144,12 @@ def get_direct_audio_url(url: str) -> str:
     except Exception:
         pass
 
-    # Fallback to default format if bestaudio is not available (e.g. YouTube live streams without JS runtime)
-    cmd_fallback = ['yt-dlp', '--no-cache-dir', '-g', url]
+    # Fallback to default format (combined formats) if bestaudio is not available
+    cmd_fallback = [
+        'yt-dlp', '--no-cache-dir', 
+        '--extractor-args', 'youtube:player-client=web_embedded,android', 
+        '-g', url
+    ]
     try:
         res = subprocess.run(cmd_fallback, capture_output=True, text=True, encoding='utf-8')
         if res.returncode == 0 and res.stdout.strip():
@@ -634,6 +650,9 @@ async def connect_new_stream(url: str, start_time: str = ""):
         
         # Get the direct audio URL for ffmpeg
         direct_url = await loop.run_in_executor(None, get_direct_audio_url, url)
+        if not direct_url:
+            raise Exception("YouTube blocked this request or direct stream URL could not be resolved.")
+            
         free_slot.direct_audio_url = direct_url
         free_slot.status = "Transcribing"
         await broadcast_message(get_status_payload())
@@ -643,8 +662,9 @@ async def connect_new_stream(url: str, start_time: str = ""):
             
     except Exception as e:
         print(f"Slot {free_slot.slot_id} connection failed: {e}")
-        free_slot.active = False
-        free_slot.status = "Inactive"
+        free_slot.active = True
+        free_slot.status = "Error"
+        free_slot.title = "Error: YouTube Blocked"
         await broadcast_message(get_status_payload())
 
 async def disconnect_slot(slot_id: int):
