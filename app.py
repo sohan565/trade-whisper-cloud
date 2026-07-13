@@ -153,8 +153,10 @@ def get_direct_audio_url(url: str) -> str:
         if res.returncode == 0 and res.stdout.strip():
             out = res.stdout.strip().split('\n')
             return out[-1]
-    except Exception:
-        pass
+        else:
+            print(f"Primary yt-dlp resolution failed (code {res.returncode}): {res.stderr.strip()}")
+    except Exception as e:
+        print(f"Primary yt-dlp resolution exception: {e}")
 
     # Fallback to default format (combined formats) if bestaudio is not available
     cmd_fallback = [
@@ -171,8 +173,10 @@ def get_direct_audio_url(url: str) -> str:
         if res.returncode == 0 and res.stdout.strip():
             out = res.stdout.strip().split('\n')
             return out[-1]
+        else:
+            print(f"Fallback yt-dlp resolution failed (code {res.returncode}): {res.stderr.strip()}")
     except Exception as e:
-        print(f"Error getting fallback direct URL: {e}")
+        print(f"Fallback yt-dlp resolution exception: {e}")
         
     return ""
 
