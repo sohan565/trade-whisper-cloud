@@ -1,0 +1,29 @@
+# Python Virtual Environment
+venv/
+.venv/
+ENV/
+env/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Audio Temporary Files
+temp_chunk_*.mp3
+*.wav
+*.m4a
+*.vtt
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# IDE Files
+.vscode/
+.idea/
+
+# Local configuration / secrets
+.env

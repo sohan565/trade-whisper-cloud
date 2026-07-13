@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+jinja2
+websockets
+requests
+google-genai
+pydantic
+yt-dlp

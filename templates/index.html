@@ -1,0 +1,1510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Stream Trade Detector</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-base: #080711;
+            --bg-surface: rgba(16, 14, 35, 0.6);
+            --bg-card: rgba(26, 24, 53, 0.4);
+            --border-glow: rgba(123, 97, 255, 0.2);
+            --border-glow-active: rgba(123, 97, 255, 0.5);
+            
+            --primary: #7b61ff;
+            --primary-glow: rgba(123, 97, 255, 0.35);
+            --success: #00e676;
+            --success-glow: rgba(0, 230, 118, 0.25);
+            --danger: #ff1744;
+            --danger-glow: rgba(255, 23, 68, 0.25);
+            --warning: #ffea00;
+            --warning-glow: rgba(255, 234, 0, 0.25);
+            
+            --text-main: #f3f1fe;
+            --text-muted: #9c9aab;
+            --text-dim: #605f70;
+            
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(123, 97, 255, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(0, 230, 118, 0.05) 0%, transparent 40%);
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.5rem 2rem;
+            background: rgba(8, 7, 17, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            width: 2.25rem;
+            height: 2.25rem;
+            background: linear-gradient(135deg, var(--primary) 0%, #a29bfe 100%);
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 15px var(--primary-glow);
+            animation: pulse-glow 2s infinite;
+        }
+
+        .logo-icon svg {
+            width: 1.25rem;
+            height: 1.25rem;
+            fill: #fff;
+        }
+
+        h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: linear-gradient(90deg, #fff 0%, #cbd5e1 50%, var(--primary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 100px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--text-dim);
+            position: relative;
+        }
+
+        .status-indicator.connected {
+            background-color: var(--success);
+            box-shadow: 0 0 8px var(--success-glow);
+        }
+
+        .status-indicator.connected::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            border-radius: 50%;
+            border: 2px solid var(--success);
+            animation: ping 1.5s infinite;
+        }
+
+        main {
+            flex: 1;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 1fr 360px;
+            gap: 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .workspace {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .control-panel {
+            background: var(--bg-surface);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glow);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            transition: var(--transition);
+        }
+
+        .control-panel:focus-within {
+            border-color: var(--border-glow-active);
+            box-shadow: 0 8px 32px rgba(123, 97, 255, 0.1);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .url-input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 0.75rem;
+            padding: 0.85rem 1.25rem;
+            color: var(--text-main);
+            font-size: 0.95rem;
+            font-family: inherit;
+            outline: none;
+            transition: var(--transition);
+        }
+
+        .url-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 10px rgba(123, 97, 255, 0.15);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--primary) 0%, #5d42e6 100%);
+            border: none;
+            border-radius: 0.75rem;
+            padding: 0 1.75rem;
+            color: #fff;
+            font-size: 0.95rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 15px rgba(123, 97, 255, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(123, 97, 255, 0.4);
+            filter: brightness(1.1);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger) 0%, #b3002d 100%);
+            box-shadow: 0 4px 15px rgba(255, 23, 68, 0.3);
+        }
+
+        .btn-danger:hover {
+            box-shadow: 0 6px 20px rgba(255, 23, 68, 0.4);
+        }
+
+        .streams-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .stream-card {
+            background: var(--bg-surface);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 1rem;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 380px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            transition: var(--transition);
+            position: relative;
+        }
+
+        .stream-card.active-stream {
+            border-color: rgba(123, 97, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(123, 97, 255, 0.05);
+        }
+
+        .stream-header {
+            padding: 1rem 1.25rem;
+            background: rgba(255, 255, 255, 0.02);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .stream-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+            max-width: 70%;
+        }
+
+        .stream-slot-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .stream-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .stream-status-badge {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.25rem 0.6rem;
+            border-radius: 100px;
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-muted);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .stream-status-badge.transcribing {
+            background: rgba(0, 230, 118, 0.08);
+            color: var(--success);
+            border-color: rgba(0, 230, 118, 0.15);
+        }
+
+        .stream-status-badge.connecting {
+            background: rgba(255, 234, 0, 0.08);
+            color: var(--warning);
+            border-color: rgba(255, 234, 0, 0.15);
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: var(--text-dim);
+        }
+
+        .stream-status-badge.transcribing .status-dot {
+            background-color: var(--success);
+            box-shadow: 0 0 6px var(--success-glow);
+            animation: blink 1s infinite alternate;
+        }
+
+        .stream-status-badge.connecting .status-dot {
+            background-color: var(--warning);
+            box-shadow: 0 0 6px var(--warning-glow);
+            animation: blink 0.5s infinite alternate;
+        }
+
+        .stream-terminal {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.35);
+            padding: 1.25rem;
+            font-family: 'Space Grotesk', monospace;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            scroll-behavior: smooth;
+        }
+
+        .terminal-placeholder {
+            margin: auto;
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .terminal-placeholder svg {
+            width: 1.75rem;
+            height: 1.75rem;
+            opacity: 0.4;
+        }
+
+        .subtitle-line {
+            animation: fade-slide-in 0.25s ease-out forwards;
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-start;
+        }
+
+        .line-timestamp {
+            color: var(--primary);
+            font-size: 0.75rem;
+            font-weight: 500;
+            white-space: nowrap;
+            margin-top: 0.1rem;
+            background: rgba(123, 97, 255, 0.08);
+            padding: 0.1rem 0.35rem;
+            border-radius: 4px;
+        }
+
+        .line-text {
+            color: var(--text-main);
+        }
+
+        .stream-footer {
+            padding: 0.75rem 1.25rem;
+            background: rgba(255, 255, 255, 0.01);
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .gemini-status {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .gemini-status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: var(--text-dim);
+            transition: var(--transition);
+        }
+
+        .gemini-status-dot.active {
+            background-color: var(--primary);
+            box-shadow: 0 0 8px var(--primary);
+            animation: pulse-glow-small 1.5s infinite;
+        }
+
+        .disconnect-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            transition: var(--transition);
+        }
+
+        .disconnect-btn:hover {
+            color: var(--danger);
+        }
+
+        /* Sidebar Alerts panel */
+        .alerts-panel {
+            background: var(--bg-surface);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 1rem;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 120px);
+            position: sticky;
+            top: 5.5rem;
+            box-shadow: -8px 0 32px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .alerts-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .alerts-header h2 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .alerts-header svg {
+            width: 1.25rem;
+            height: 1.25rem;
+            fill: var(--warning);
+        }
+
+        .alert-count {
+            background: rgba(255, 234, 0, 0.1);
+            color: var(--warning);
+            border: 1px solid rgba(255, 234, 0, 0.2);
+            padding: 0.15rem 0.5rem;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .alerts-list {
+            flex: 1;
+            padding: 1.25rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .alerts-placeholder {
+            margin: auto;
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+            max-width: 80%;
+        }
+
+        .alerts-placeholder svg {
+            width: 2.25rem;
+            height: 2.25rem;
+            opacity: 0.3;
+        }
+
+        .alert-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            position: relative;
+            animation: slide-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .alert-card.buy {
+            border-left: 4px solid var(--success);
+            box-shadow: inset 2px 0 10px rgba(0, 230, 118, 0.05);
+        }
+
+        .alert-card.sell {
+            border-left: 4px solid var(--danger);
+            box-shadow: inset 2px 0 10px rgba(255, 23, 68, 0.05);
+        }
+
+        .alert-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .alert-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .alert-badge.buy {
+            background: rgba(0, 230, 118, 0.15);
+            color: var(--success);
+        }
+
+        .alert-badge.sell {
+            background: rgba(255, 23, 68, 0.15);
+            color: var(--danger);
+        }
+
+        .alert-time {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+        }
+
+        .alert-asset {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .alert-slot-badge {
+            font-size: 0.65rem;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            padding: 0.1rem 0.35rem;
+            border-radius: 4px;
+        }
+
+        .alert-details {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 0.6rem;
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.02);
+        }
+
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+        }
+
+        .detail-label {
+            color: var(--text-muted);
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+
+        .detail-value {
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .alert-reason {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+            font-style: italic;
+        }
+
+        .alert-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.7rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+            padding-top: 0.5rem;
+            color: var(--text-dim);
+        }
+
+        .alert-source {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 70%;
+        }
+
+        /* Animations */
+        @keyframes ping {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(2.5); opacity: 0; }
+        }
+
+        @keyframes blink {
+            0% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 15px rgba(123, 97, 255, 0.35); }
+            50% { box-shadow: 0 0 25px rgba(123, 97, 255, 0.55); }
+            100% { box-shadow: 0 0 15px rgba(123, 97, 255, 0.35); }
+        }
+
+        @keyframes pulse-glow-small {
+            0% { box-shadow: 0 0 5px rgba(123, 97, 255, 0.3); }
+            50% { box-shadow: 0 0 12px rgba(123, 97, 255, 0.5); }
+            100% { box-shadow: 0 0 5px rgba(123, 97, 255, 0.3); }
+        }
+
+        @keyframes fade-slide-in {
+            0% { opacity: 0; transform: translateY(8px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slide-in {
+            0% { opacity: 0; transform: translateX(30px); }
+            100% { opacity: 1; transform: translateX(0); }
+        }
+
+        /* Responsive Styles for Mobile and Tablets */
+        .mobile-nav {
+            display: none;
+            background: rgba(16, 14, 35, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 0.75rem;
+            padding: 0.3rem;
+            gap: 0.3rem;
+            width: 100%;
+        }
+
+        .mobile-nav-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 0.85rem;
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 0.9rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: var(--transition);
+        }
+
+        .mobile-nav-btn.active {
+            background: linear-gradient(135deg, var(--primary) 0%, #5d42e6 100%);
+            color: #fff;
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .mobile-nav-badge {
+            background: var(--danger);
+            color: #fff;
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 0.15rem 0.45rem;
+            border-radius: 100px;
+            display: inline-block;
+            box-shadow: 0 2px 5px rgba(255, 23, 68, 0.4);
+        }
+
+        .streams-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.25rem;
+        }
+
+        @media (max-width: 1100px) {
+            main {
+                grid-template-columns: 1fr;
+                padding: 1rem;
+                gap: 1rem;
+            }
+            .mobile-nav {
+                display: flex;
+            }
+            .workspace.mobile-hidden, .alerts-panel.mobile-hidden {
+                display: none !important;
+            }
+            .alerts-panel {
+                height: calc(100vh - 180px);
+                position: static;
+                box-shadow: none;
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 600px) {
+            header {
+                padding: 1rem;
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+            }
+            h1 {
+                font-size: 1rem;
+            }
+            .logo-icon {
+                width: 1.85rem;
+                height: 1.85rem;
+            }
+            .logo-icon svg {
+                width: 1rem;
+                height: 1rem;
+            }
+            .status-pill {
+                padding: 0.4rem 0.75rem;
+                font-size: 0.75rem;
+            }
+            .input-group {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+            .url-input {
+                padding: 0.75rem 1rem;
+                font-size: 0.9rem;
+            }
+            #stream-start-time {
+                max-width: none !important;
+            }
+            .btn {
+                padding: 0.85rem 1.25rem;
+                justify-content: center;
+            }
+            .stream-card {
+                height: 360px;
+            }
+        }
+
+        /* Stream Tabs and AI Inspector CSS */
+        .stream-tabs {
+            display: flex;
+            background: rgba(0, 0, 0, 0.15);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+        .tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 0.5rem;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            border-bottom: 2px solid transparent;
+        }
+        .tab-btn:hover {
+            color: var(--text-main);
+        }
+        .tab-btn.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            background: rgba(123, 97, 255, 0.03);
+        }
+        .tab-btn.pulse-alert {
+            animation: tab-pulse 0.8s infinite alternate;
+        }
+        @keyframes tab-pulse {
+            0% { background: rgba(123, 97, 255, 0.03); border-bottom-color: var(--primary); }
+            100% { background: rgba(255, 234, 0, 0.15); border-bottom-color: var(--warning); color: var(--warning); }
+        }
+        .ai-inspector {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            padding: 1rem;
+            background: rgba(10, 8, 22, 0.5);
+            overflow-y: auto;
+        }
+        .inspector-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+        .inspector-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .inspector-pre {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 6px;
+            padding: 0.6rem;
+            font-family: 'Space Grotesk', monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-section">
+            <div class="logo-icon">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                </svg>
+            </div>
+            <div>
+                <h1>Gemini Stream Trade Detector</h1>
+            </div>
+        </div>
+        <div class="status-pill">
+            <div id="connection-dot" class="status-indicator"></div>
+            <span id="connection-text">Connecting Server...</span>
+        </div>
+    </header>
+
+    <main>
+        <!-- Sleek Segmented Switcher for Mobile UI -->
+        <div class="mobile-nav" id="mobile-nav">
+            <button class="mobile-nav-btn active" id="btn-show-streams" onclick="toggleMobileView('streams')">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.2rem;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+                Monitor Streams
+            </button>
+            <button class="mobile-nav-btn" id="btn-show-alerts" onclick="toggleMobileView('alerts')">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.2rem;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                Signals (<span id="mobile-alert-count" class="mobile-nav-badge">0</span>)
+            </button>
+        </div>
+
+        <div class="workspace">
+            <!-- URL Input Control Panel -->
+            <section class="control-panel">
+                <form id="url-form">
+                    <div class="input-group">
+                        <input type="url" id="stream-url" class="url-input" style="flex: 2;" placeholder="Enter YouTube Live or Video URL (e.g. https://www.youtube.com/watch?v=...)" required>
+                        <input type="text" id="stream-start-time" class="url-input" style="flex: 1; max-width: 250px;" placeholder="Start time (Optional, e.g. 1:30:00 or 45:00)">
+                        <button type="submit" class="btn">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.2rem;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            Connect Stream
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- 5 Grid Slots for Active Streams -->
+            <section class="streams-grid" id="streams-grid">
+                <!-- Slot 1 -->
+                <div class="stream-card" id="slot-0">
+                    <div class="stream-header">
+                        <div class="stream-info">
+                            <span class="stream-slot-label">Slot 1</span>
+                            <span class="stream-title" id="slot-0-title">Idle</span>
+                        </div>
+                        <div class="stream-status-badge" id="slot-0-status-badge">
+                            <div class="status-dot"></div>
+                            <span id="slot-0-status-text">Inactive</span>
+                        </div>
+                    </div>
+                    <!-- Tabs -->
+                    <div class="stream-tabs" id="slot-0-tabs" style="display:none;">
+                        <button class="tab-btn active" id="slot-0-tab-sub" onclick="switchTab(0, 'sub')">Subtitles</button>
+                        <button class="tab-btn" id="slot-0-tab-ai" onclick="switchTab(0, 'ai')">AI Inspector</button>
+                    </div>
+                    <!-- Combined Body Container -->
+                    <div style="flex:1; display:flex; flex-direction:column; overflow:hidden; position:relative;">
+                        <div class="stream-terminal" id="slot-0-terminal">
+                            <div class="terminal-placeholder">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
+                                <span>No Stream Loaded</span>
+                            </div>
+                        </div>
+                        <div class="ai-inspector" id="slot-0-ai" style="display:none;">
+                            <div class="inspector-section">
+                                <span class="inspector-label">Prompt Sent (Last 30s)</span>
+                                <pre class="inspector-pre" id="slot-0-prompt">No prompt analyzed yet...</pre>
+                            </div>
+                            <div class="inspector-section" style="flex:1; display:flex; flex-direction:column; min-height:0;">
+                                <span class="inspector-label">Gemini Raw Response</span>
+                                <pre class="inspector-pre" id="slot-0-response" style="flex:1; max-height:none;">No response received yet...</pre>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stream-footer">
+                        <div class="gemini-status">
+                            <div class="gemini-status-dot" id="slot-0-gemini"></div>
+                            <span>Gemini Inactive</span>
+                        </div>
+                        <button class="disconnect-btn" onclick="disconnectStream(0)" style="display:none;" id="slot-0-disconnect">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            Disconnect
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Slot 2 -->
+                <div class="stream-card" id="slot-1">
+                    <div class="stream-header">
+                        <div class="stream-info">
+                            <span class="stream-slot-label">Slot 2</span>
+                            <span class="stream-title" id="slot-1-title">Idle</span>
+                        </div>
+                        <div class="stream-status-badge" id="slot-1-status-badge">
+                            <div class="status-dot"></div>
+                            <span id="slot-1-status-text">Inactive</span>
+                        </div>
+                    </div>
+                    <!-- Tabs -->
+                    <div class="stream-tabs" id="slot-1-tabs" style="display:none;">
+                        <button class="tab-btn active" id="slot-1-tab-sub" onclick="switchTab(1, 'sub')">Subtitles</button>
+                        <button class="tab-btn" id="slot-1-tab-ai" onclick="switchTab(1, 'ai')">AI Inspector</button>
+                    </div>
+                    <!-- Combined Body Container -->
+                    <div style="flex:1; display:flex; flex-direction:column; overflow:hidden; position:relative;">
+                        <div class="stream-terminal" id="slot-1-terminal">
+                            <div class="terminal-placeholder">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
+                                <span>No Stream Loaded</span>
+                            </div>
+                        </div>
+                        <div class="ai-inspector" id="slot-1-ai" style="display:none;">
+                            <div class="inspector-section">
+                                <span class="inspector-label">Prompt Sent (Last 30s)</span>
+                                <pre class="inspector-pre" id="slot-1-prompt">No prompt analyzed yet...</pre>
+                            </div>
+                            <div class="inspector-section" style="flex:1; display:flex; flex-direction:column; min-height:0;">
+                                <span class="inspector-label">Gemini Raw Response</span>
+                                <pre class="inspector-pre" id="slot-1-response" style="flex:1; max-height:none;">No response received yet...</pre>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stream-footer">
+                        <div class="gemini-status">
+                            <div class="gemini-status-dot" id="slot-1-gemini"></div>
+                            <span>Gemini Inactive</span>
+                        </div>
+                        <button class="disconnect-btn" onclick="disconnectStream(1)" style="display:none;" id="slot-1-disconnect">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            Disconnect
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Slot 3 -->
+                <div class="stream-card" id="slot-2">
+                    <div class="stream-header">
+                        <div class="stream-info">
+                            <span class="stream-slot-label">Slot 3</span>
+                            <span class="stream-title" id="slot-2-title">Idle</span>
+                        </div>
+                        <div class="stream-status-badge" id="slot-2-status-badge">
+                            <div class="status-dot"></div>
+                            <span id="slot-2-status-text">Inactive</span>
+                        </div>
+                    </div>
+                    <!-- Tabs -->
+                    <div class="stream-tabs" id="slot-2-tabs" style="display:none;">
+                        <button class="tab-btn active" id="slot-2-tab-sub" onclick="switchTab(2, 'sub')">Subtitles</button>
+                        <button class="tab-btn" id="slot-2-tab-ai" onclick="switchTab(2, 'ai')">AI Inspector</button>
+                    </div>
+                    <!-- Combined Body Container -->
+                    <div style="flex:1; display:flex; flex-direction:column; overflow:hidden; position:relative;">
+                        <div class="stream-terminal" id="slot-2-terminal">
+                            <div class="terminal-placeholder">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
+                                <span>No Stream Loaded</span>
+                            </div>
+                        </div>
+                        <div class="ai-inspector" id="slot-2-ai" style="display:none;">
+                            <div class="inspector-section">
+                                <span class="inspector-label">Prompt Sent (Last 30s)</span>
+                                <pre class="inspector-pre" id="slot-2-prompt">No prompt analyzed yet...</pre>
+                            </div>
+                            <div class="inspector-section" style="flex:1; display:flex; flex-direction:column; min-height:0;">
+                                <span class="inspector-label">Gemini Raw Response</span>
+                                <pre class="inspector-pre" id="slot-2-response" style="flex:1; max-height:none;">No response received yet...</pre>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stream-footer">
+                        <div class="gemini-status">
+                            <div class="gemini-status-dot" id="slot-2-gemini"></div>
+                            <span>Gemini Inactive</span>
+                        </div>
+                        <button class="disconnect-btn" onclick="disconnectStream(2)" style="display:none;" id="slot-2-disconnect">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            Disconnect
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Slot 4 -->
+                <div class="stream-card" id="slot-3">
+                    <div class="stream-header">
+                        <div class="stream-info">
+                            <span class="stream-slot-label">Slot 4</span>
+                            <span class="stream-title" id="slot-3-title">Idle</span>
+                        </div>
+                        <div class="stream-status-badge" id="slot-3-status-badge">
+                            <div class="status-dot"></div>
+                            <span id="slot-3-status-text">Inactive</span>
+                        </div>
+                    </div>
+                    <!-- Tabs -->
+                    <div class="stream-tabs" id="slot-3-tabs" style="display:none;">
+                        <button class="tab-btn active" id="slot-3-tab-sub" onclick="switchTab(3, 'sub')">Subtitles</button>
+                        <button class="tab-btn" id="slot-3-tab-ai" onclick="switchTab(3, 'ai')">AI Inspector</button>
+                    </div>
+                    <!-- Combined Body Container -->
+                    <div style="flex:1; display:flex; flex-direction:column; overflow:hidden; position:relative;">
+                        <div class="stream-terminal" id="slot-3-terminal">
+                            <div class="terminal-placeholder">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
+                                <span>No Stream Loaded</span>
+                            </div>
+                        </div>
+                        <div class="ai-inspector" id="slot-3-ai" style="display:none;">
+                            <div class="inspector-section">
+                                <span class="inspector-label">Prompt Sent (Last 30s)</span>
+                                <pre class="inspector-pre" id="slot-3-prompt">No prompt analyzed yet...</pre>
+                            </div>
+                            <div class="inspector-section" style="flex:1; display:flex; flex-direction:column; min-height:0;">
+                                <span class="inspector-label">Gemini Raw Response</span>
+                                <pre class="inspector-pre" id="slot-3-response" style="flex:1; max-height:none;">No response received yet...</pre>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stream-footer">
+                        <div class="gemini-status">
+                            <div class="gemini-status-dot" id="slot-3-gemini"></div>
+                            <span>Gemini Inactive</span>
+                        </div>
+                        <button class="disconnect-btn" onclick="disconnectStream(3)" style="display:none;" id="slot-3-disconnect">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            Disconnect
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Slot 5 -->
+                <div class="stream-card" id="slot-4">
+                    <div class="stream-header">
+                        <div class="stream-info">
+                            <span class="stream-slot-label">Slot 5</span>
+                            <span class="stream-title" id="slot-4-title">Idle</span>
+                        </div>
+                        <div class="stream-status-badge" id="slot-4-status-badge">
+                            <div class="status-dot"></div>
+                            <span id="slot-4-status-text">Inactive</span>
+                        </div>
+                    </div>
+                    <!-- Tabs -->
+                    <div class="stream-tabs" id="slot-4-tabs" style="display:none;">
+                        <button class="tab-btn active" id="slot-4-tab-sub" onclick="switchTab(4, 'sub')">Subtitles</button>
+                        <button class="tab-btn" id="slot-4-tab-ai" onclick="switchTab(4, 'ai')">AI Inspector</button>
+                    </div>
+                    <!-- Combined Body Container -->
+                    <div style="flex:1; display:flex; flex-direction:column; overflow:hidden; position:relative;">
+                        <div class="stream-terminal" id="slot-4-terminal">
+                            <div class="terminal-placeholder">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
+                                <span>No Stream Loaded</span>
+                            </div>
+                        </div>
+                        <div class="ai-inspector" id="slot-4-ai" style="display:none;">
+                            <div class="inspector-section">
+                                <span class="inspector-label">Prompt Sent (Last 30s)</span>
+                                <pre class="inspector-pre" id="slot-4-prompt">No prompt analyzed yet...</pre>
+                            </div>
+                            <div class="inspector-section" style="flex:1; display:flex; flex-direction:column; min-height:0;">
+                                <span class="inspector-label">Gemini Raw Response</span>
+                                <pre class="inspector-pre" id="slot-4-response" style="flex:1; max-height:none;">No response received yet...</pre>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stream-footer">
+                        <div class="gemini-status">
+                            <div class="gemini-status-dot" id="slot-4-gemini"></div>
+                            <span>Gemini Inactive</span>
+                        </div>
+                        <button class="disconnect-btn" onclick="disconnectStream(4)" style="display:none;" id="slot-4-disconnect">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            Disconnect
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Sidebar Gemini Alerts Panel -->
+        <aside class="alerts-panel">
+            <div class="alerts-header">
+                <h2>
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 4.36 6 6.92 6 10v5l-2 2v1h16v-1l-2-2z"/>
+                    </svg>
+                    Trade Entry Signals
+                </h2>
+                <span class="alert-count" id="alert-count">0 Alerts</span>
+            </div>
+            <div class="alerts-list" id="alerts-list">
+                <div class="alerts-placeholder" id="alerts-placeholder">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                    <span>Waiting for Gemini to detect trade entries... Analysis runs every 30 seconds.</span>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <script>
+        let ws;
+        let reconnectTimeout;
+        const alertsList = document.getElementById('alerts-list');
+        const alertCount = document.getElementById('alert-count');
+        const alertsPlaceholder = document.getElementById('alerts-placeholder');
+        let totalAlertsCount = 0;
+
+        // Initialize Audio context for synthesized alert sounds
+        let audioCtx;
+        function playAlertSound(type) {
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                if (type === 'buy') {
+                    // Ascending chords for Buy
+                    osc.frequency.setValueAtTime(440, audioCtx.currentTime); // A4
+                    osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.35); // A5
+                    gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.35);
+                } else {
+                    // Double warning beep for Sell
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(293.66, audioCtx.currentTime); // D4
+                    osc.frequency.setValueAtTime(220, audioCtx.currentTime + 0.15); // A3
+                    gainNode.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.3);
+                }
+            } catch(e) {
+                console.error("Audio Context playback blocked or not supported:", e);
+            }
+        }
+
+        // Setup WebSocket connection
+        function connectWS() {
+            const loc = window.location;
+            const wsUri = (loc.protocol === "https:" ? "wss:" : "ws:") + "//" + loc.host + "/ws";
+            
+            ws = new WebSocket(wsUri);
+
+            ws.onopen = () => {
+                document.getElementById('connection-dot').className = 'status-indicator connected';
+                document.getElementById('connection-text').innerText = 'Connected to Backend';
+                console.log("WebSocket connected.");
+            };
+
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                handleWSMessage(msg);
+            };
+
+            ws.onclose = () => {
+                document.getElementById('connection-dot').className = 'status-indicator';
+                document.getElementById('connection-text').innerText = 'Disconnected. Retrying...';
+                console.log("WebSocket closed. Attempting reconnect...");
+                reconnectTimeout = setTimeout(connectWS, 3000);
+            };
+
+            ws.onerror = (err) => {
+                console.error("WebSocket encountered error:", err);
+                ws.close();
+            };
+        }
+
+        function handleWSMessage(msg) {
+            if (msg.type === "streams_status") {
+                // Update all 5 slots
+                for (let i = 0; i < 5; i++) {
+                    const status = msg.slots[i];
+                    updateSlotUI(i, status);
+                }
+            } else if (msg.type === "subtitle") {
+                appendSubtitle(msg.slot_id, msg.timestamp, msg.text);
+            } else if (msg.type === "gemini_status") {
+                updateGeminiIndicator(msg.slot_id, msg.active);
+            } else if (msg.type === "gemini_debug") {
+                document.getElementById(`slot-${msg.slot_id}-prompt`).innerText = msg.prompt;
+                document.getElementById(`slot-${msg.slot_id}-response`).innerText = msg.response;
+                pulseAITab(msg.slot_id);
+            } else if (msg.type === "trade_alert") {
+                triggerTradeAlert(msg);
+            }
+        }
+
+        function updateSlotUI(slotId, status) {
+            const card = document.getElementById(`slot-${slotId}`);
+            const titleEl = document.getElementById(`slot-${slotId}-title`);
+            const statusBadge = document.getElementById(`slot-${slotId}-status-badge`);
+            const statusText = document.getElementById(`slot-${slotId}-status-text`);
+            const disconnectBtn = document.getElementById(`slot-${slotId}-disconnect`);
+            const terminal = document.getElementById(`slot-${slotId}-terminal`);
+
+            if (status.active) {
+                card.className = "stream-card active-stream";
+                titleEl.innerText = status.title || "Transcribing Feed...";
+                titleEl.title = status.url;
+                statusBadge.className = `stream-status-badge ${status.status.toLowerCase()}`;
+                statusText.innerText = status.status;
+                disconnectBtn.style.display = "flex";
+                document.getElementById(`slot-${slotId}-tabs`).style.display = "flex";
+                
+                // Clear placeholder if it's there
+                if (terminal.querySelector('.terminal-placeholder')) {
+                    terminal.innerHTML = "";
+                }
+            } else {
+                card.className = "stream-card";
+                titleEl.innerText = "Idle";
+                titleEl.title = "";
+                statusBadge.className = "stream-status-badge";
+                statusText.innerText = "Inactive";
+                disconnectBtn.style.display = "none";
+                document.getElementById(`slot-${slotId}-tabs`).style.display = "none";
+                switchTab(slotId, 'sub');
+                document.getElementById(`slot-${slotId}-prompt`).innerText = "No prompt analyzed yet...";
+                document.getElementById(`slot-${slotId}-response`).innerText = "No response received yet...";
+                
+                // Restore placeholder if empty
+                if (terminal.children.length === 0 || terminal.querySelector('.subtitle-line') === null) {
+                    terminal.innerHTML = `
+                        <div class="terminal-placeholder">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
+                            <span>No Stream Loaded</span>
+                        </div>`;
+                }
+            }
+        }
+
+        function appendSubtitle(slotId, timestamp, text) {
+            const terminal = document.getElementById(`slot-${slotId}-terminal`);
+            
+            // Clear placeholder if still present
+            if (terminal.querySelector('.terminal-placeholder')) {
+                terminal.innerHTML = "";
+            }
+
+            const line = document.createElement('div');
+            line.className = 'subtitle-line';
+            line.innerHTML = `
+                <span class="line-timestamp">${timestamp}</span>
+                <span class="line-text">${escapeHTML(text)}</span>
+            `;
+            
+            terminal.appendChild(line);
+            
+            // Auto scroll to bottom
+            terminal.scrollTop = terminal.scrollHeight;
+
+            // Keep max 100 lines to prevent memory leak
+            if (terminal.children.length > 100) {
+                terminal.removeChild(terminal.firstChild);
+            }
+        }
+
+        function updateGeminiIndicator(slotId, isActive) {
+            const indicator = document.getElementById(`slot-${slotId}-gemini`);
+            const label = indicator.nextElementSibling;
+            if (isActive) {
+                indicator.className = "gemini-status-dot active";
+                label.innerText = "Gemini Analyzing...";
+            } else {
+                indicator.className = "gemini-status-dot";
+                label.innerText = "Gemini Monitoring";
+            }
+        }
+
+        function triggerTradeAlert(alert) {
+            // Hide placeholder on first alert
+            if (alertsPlaceholder) {
+                alertsPlaceholder.style.display = 'none';
+            }
+
+            totalAlertsCount++;
+            alertCount.innerText = `${totalAlertsCount} Alerts`;
+            const mobileAlertBadge = document.getElementById('mobile-alert-count');
+            if (mobileAlertBadge) {
+                mobileAlertBadge.innerText = totalAlertsCount;
+            }
+
+            // Play synthesized audio notification
+            playAlertSound(alert.direction.toLowerCase());
+
+            // Build alert card element
+            const card = document.createElement('div');
+            const directionClass = alert.direction.toLowerCase() === 'buy' ? 'buy' : 'sell';
+            card.className = `alert-card ${directionClass}`;
+            
+            card.innerHTML = `
+                <div class="alert-header">
+                    <span class="alert-badge ${directionClass}">${alert.direction}</span>
+                    <span class="alert-time">${new Date().toLocaleTimeString()}</span>
+                </div>
+                <div class="alert-asset">
+                    ${escapeHTML(alert.asset)}
+                    <span class="alert-slot-badge">Slot ${alert.slot_id + 1}</span>
+                </div>
+                <div class="alert-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Entry</span>
+                        <span class="detail-value">${escapeHTML(alert.entry_price || 'N/A')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Target</span>
+                        <span class="detail-value" style="color:var(--success);">${escapeHTML(alert.target_price || 'N/A')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Stop Loss</span>
+                        <span class="detail-value" style="color:var(--danger);">${escapeHTML(alert.stop_loss || 'N/A')}</span>
+                    </div>
+                </div>
+                <div class="alert-reason">
+                    "${escapeHTML(alert.reasoning)}"
+                </div>
+                <div class="alert-footer">
+                    <span class="alert-source" title="${escapeHTML(alert.stream_title)}">Src: ${escapeHTML(alert.stream_title)}</span>
+                    <span style="font-weight:700;">Conf: ${alert.confidence}</span>
+                </div>
+            `;
+
+            // Insert card at the top of the alerts list
+            alertsList.insertBefore(card, alertsList.firstChild);
+
+            // Keep max 20 alert cards
+            if (alertsList.children.length > 20) {
+                alertsList.removeChild(alertsList.lastChild);
+            }
+        }
+
+        // Disconnect Stream request
+        function disconnectStream(slotId) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    action: "disconnect",
+                    slot_id: slotId
+                }));
+            }
+        }
+
+        // Form Submit to Connect a URL
+        document.getElementById('url-form').onsubmit = (e) => {
+            e.preventDefault();
+            const urlInput = document.getElementById('stream-url');
+            const startInput = document.getElementById('stream-start-time');
+            const url = urlInput.value.trim();
+            const start_time = startInput.value.trim();
+            
+            if (url && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    action: "connect",
+                    url: url,
+                    start_time: start_time
+                }));
+                urlInput.value = "";
+                startInput.value = "";
+            }
+        };
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        }
+
+        function switchTab(slotId, tabName) {
+            const subTab = document.getElementById(`slot-${slotId}-tab-sub`);
+            const aiTab = document.getElementById(`slot-${slotId}-tab-ai`);
+            const terminal = document.getElementById(`slot-${slotId}-terminal`);
+            const aiInspector = document.getElementById(`slot-${slotId}-ai`);
+            
+            if (tabName === 'sub') {
+                subTab.className = "tab-btn active";
+                aiTab.className = "tab-btn";
+                terminal.style.display = "flex";
+                aiInspector.style.display = "none";
+            } else {
+                aiTab.className = "tab-btn active";
+                subTab.className = "tab-btn";
+                terminal.style.display = "none";
+                aiInspector.style.display = "flex";
+                // Remove pulse effect if active
+                aiTab.classList.remove('pulse-alert');
+            }
+        }
+
+        function pulseAITab(slotId) {
+            const aiTab = document.getElementById(`slot-${slotId}-tab-ai`);
+            // Only pulse if we are not currently viewing the AI Inspector tab
+            if (!aiTab.classList.contains('active')) {
+                aiTab.classList.add('pulse-alert');
+            }
+        }
+
+        // Mobile layout toggling
+        function toggleMobileView(view) {
+            const workspace = document.querySelector('.workspace');
+            const alertsPanel = document.querySelector('.alerts-panel');
+            const btnStreams = document.getElementById('btn-show-streams');
+            const btnAlerts = document.getElementById('btn-show-alerts');
+            
+            if (view === 'streams') {
+                workspace.classList.remove('mobile-hidden');
+                alertsPanel.classList.add('mobile-hidden');
+                btnStreams.classList.add('active');
+                btnAlerts.classList.remove('active');
+            } else {
+                workspace.classList.add('mobile-hidden');
+                alertsPanel.classList.remove('mobile-hidden');
+                btnStreams.classList.remove('active');
+                btnAlerts.classList.add('active');
+            }
+        }
+
+        function initMobileView() {
+            if (window.innerWidth <= 1100) {
+                const workspace = document.querySelector('.workspace');
+                const alertsPanel = document.querySelector('.alerts-panel');
+                if (!workspace.classList.contains('mobile-hidden') && !alertsPanel.classList.contains('mobile-hidden')) {
+                    toggleMobileView('streams');
+                }
+            } else {
+                document.querySelector('.workspace').classList.remove('mobile-hidden');
+                document.querySelector('.alerts-panel').classList.remove('mobile-hidden');
+            }
+        }
+
+        window.addEventListener('resize', initMobileView);
+        window.addEventListener('load', initMobileView);
+        initMobileView();
+
+        // Start WebSocket
+        connectWS();
+    </script>
+</body>
+</html>
