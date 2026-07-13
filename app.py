@@ -694,7 +694,6 @@ async def disconnect_slot(slot_id: int):
             slot.task.cancel()
         await broadcast_message(get_status_payload())
 
-# Clean up residual files on startup
 @app.on_event("startup")
 async def startup_event():
     # Delete temporary files from previous crashes/runs
@@ -706,6 +705,22 @@ async def startup_event():
     print("\n" + "="*80)
     print("Trade-whisper-cloud server dashboard is starting.")
     print("Local URL: http://localhost:8000")
+    
+    # Diagnostics for troubleshooting Render deployments
+    try:
+        version_res = subprocess.run(['yt-dlp', '--version'], capture_output=True, text=True)
+        print(f"yt-dlp version: {version_res.stdout.strip()}")
+    except Exception as e:
+        print(f"Error checking yt-dlp version: {e}")
+        
+    cookies_exist = os.path.exists('cookies.txt')
+    print(f"cookies.txt status: {'Found' if cookies_exist else 'NOT Found'}")
+    if cookies_exist:
+        try:
+            print(f"cookies.txt size: {os.path.getsize('cookies.txt')} bytes")
+        except Exception as e:
+            print(f"Error reading cookies.txt: {e}")
+            
     print("="*80 + "\n")
 
 @app.on_event("shutdown")
