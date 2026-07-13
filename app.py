@@ -543,6 +543,10 @@ async def slot_processing_loop(slot: SlotState):
 async def get_dashboard(request: Request):
     return templates.TemplateResponse(request, "index.html")
 
+@app.head("/")
+async def head_dashboard():
+    return HTMLResponse(status_code=200)
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
