@@ -125,15 +125,24 @@ def get_video_info(url: str):
 def get_direct_audio_url(url: str) -> str:
     cmd = ['yt-dlp', '--no-cache-dir', '-g', '-f', 'bestaudio', url]
     try:
-        res = subprocess.run(cmd, capture_output=True, text=True)
-        out = res.stdout.strip().split('\n')
-        # Return the last line which contains the URL
-        return out[-1]
+        res = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
+        if res.returncode == 0 and res.stdout.strip():
+            out = res.stdout.strip().split('\n')
+            return out[-1]
     except Exception:
-        cmd = ['yt-dlp', '--no-cache-dir', '-g', url]
-        res = subprocess.run(cmd, capture_output=True, text=True)
-        out = res.stdout.strip().split('\n')
-        return out[-1]
+        pass
+
+    # Fallback to default format if bestaudio is not available (e.g. YouTube live streams without JS runtime)
+    cmd_fallback = ['yt-dlp', '--no-cache-dir', '-g', url]
+    try:
+        res = subprocess.run(cmd_fallback, capture_output=True, text=True, encoding='utf-8')
+        if res.returncode == 0 and res.stdout.strip():
+            out = res.stdout.strip().split('\n')
+            return out[-1]
+    except Exception as e:
+        print(f"Error getting fallback direct URL: {e}")
+        
+    return ""
 
 def send_telegram_sync(token: str, chat_id: str, text: str):
     import urllib.request
