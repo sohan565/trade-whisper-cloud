@@ -27,3 +27,4 @@ Thumbs.db
 
 # Local configuration / secrets
 .env
+cookies.txt

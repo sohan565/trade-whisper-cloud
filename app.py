@@ -104,8 +104,12 @@ def get_video_info(url: str):
     cmd_live = [
         'yt-dlp', '--no-cache-dir', 
         '--extractor-args', 'youtube:player-client=web_embedded,android', 
-        '--print', '%(is_live)s', '--no-warnings', url
+        '--print', '%(is_live)s', '--no-warnings'
     ]
+    if os.path.exists('cookies.txt'):
+        cmd_live.extend(['--cookies', 'cookies.txt'])
+    cmd_live.append(url)
+    
     try:
         res = subprocess.run(cmd_live, capture_output=True, text=True, encoding='utf-8')
         output = res.stdout.strip().lower()
@@ -117,8 +121,12 @@ def get_video_info(url: str):
     cmd_title = [
         'yt-dlp', '--no-cache-dir', 
         '--extractor-args', 'youtube:player-client=web_embedded,android', 
-        '--print', '%(title)s', '--no-warnings', url
+        '--print', '%(title)s', '--no-warnings'
     ]
+    if os.path.exists('cookies.txt'):
+        cmd_title.extend(['--cookies', 'cookies.txt'])
+    cmd_title.append(url)
+    
     try:
         res = subprocess.run(cmd_title, capture_output=True, text=True, encoding='utf-8')
         title_out = res.stdout.strip()
@@ -134,8 +142,12 @@ def get_direct_audio_url(url: str) -> str:
     cmd = [
         'yt-dlp', '--no-cache-dir', 
         '--extractor-args', 'youtube:player-client=web_embedded,android', 
-        '-g', '-f', 'bestaudio', url
+        '-g', '-f', 'bestaudio'
     ]
+    if os.path.exists('cookies.txt'):
+        cmd.extend(['--cookies', 'cookies.txt'])
+    cmd.append(url)
+    
     try:
         res = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
         if res.returncode == 0 and res.stdout.strip():
@@ -148,8 +160,12 @@ def get_direct_audio_url(url: str) -> str:
     cmd_fallback = [
         'yt-dlp', '--no-cache-dir', 
         '--extractor-args', 'youtube:player-client=web_embedded,android', 
-        '-g', url
+        '-g'
     ]
+    if os.path.exists('cookies.txt'):
+        cmd_fallback.extend(['--cookies', 'cookies.txt'])
+    cmd_fallback.append(url)
+    
     try:
         res = subprocess.run(cmd_fallback, capture_output=True, text=True, encoding='utf-8')
         if res.returncode == 0 and res.stdout.strip():
