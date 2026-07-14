@@ -529,19 +529,33 @@ async def slot_processing_loop(slot: SlotState):
             success = await loop.run_in_executor(None, run_ffmpeg, ffmpeg_cmd)
             
             if not success or not os.path.exists(temp_file) or os.path.getsize(temp_file) == 0:
-                print(f"Slot {slot.slot_id}: Failed to capture audio chunk.")
+                print(f"Slot {slot.slot_id}: Failed to capture audio chunk. Attempting URL refresh...")
                 if os.path.exists(temp_file):
                     try: os.remove(temp_file)
                     except: pass
-                    
+                
+                # Try refreshing the direct audio URL (works for both live and recorded)
+                try:
+                    new_url = await loop.run_in_executor(None, get_direct_audio_url, slot.url)
+                    if new_url:
+                        slot.direct_audio_url = new_url
+                        print(f"Slot {slot.slot_id}: URL refreshed successfully. Retrying...")
+                        await asyncio.sleep(2)
+                        continue
+                    else:
+                        print(f"Slot {slot.slot_id}: URL refresh failed, stream may have ended.")
+                except Exception as refresh_err:
+                    print(f"Slot {slot.slot_id}: URL refresh error: {refresh_err}")
+
                 if not slot.is_live:
-                    # For static streams, this signals we reached the end of the video file
+                    # For recorded streams, end of video or unrecoverable error
+                    print(f"Slot {slot.slot_id}: Recorded stream ended or unrecoverable.")
                     slot.status = "Inactive"
                     slot.active = False
                     await broadcast_message(get_status_payload())
                     break
                 else:
-                    # Live stream error, wait and try to reconnect
+                    # Live stream error, wait and try again
                     await asyncio.sleep(5)
                     continue
             
