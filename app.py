@@ -710,9 +710,24 @@ async def startup_event():
     yt_cookies_env = os.environ.get("YT_COOKIES")
     if yt_cookies_env and yt_cookies_env.strip():
         try:
-            with open("cookies.txt", "w", encoding="utf-8") as f:
-                f.write(yt_cookies_env.strip())
-            print("Successfully initialized cookies.txt from YT_COOKIES environment variable.")
+            import base64
+            clean_str = yt_cookies_env.strip().replace("\n", "").replace("\r", "")
+            try:
+                # Try to decode as base64
+                decoded_bytes = base64.b64decode(clean_str, validate=True)
+                decoded_text = decoded_bytes.decode("utf-8")
+                # Confirm it contains cookie headers
+                if "Netscape" in decoded_text or "Cookie" in decoded_text:
+                    with open("cookies.txt", "w", encoding="utf-8") as f:
+                        f.write(decoded_text)
+                    print("Successfully decoded and initialized cookies.txt from Base64 YT_COOKIES environment variable.")
+                else:
+                    raise Exception("Decoded content does not contain cookie signatures.")
+            except Exception:
+                # Fall back to raw text
+                with open("cookies.txt", "w", encoding="utf-8") as f:
+                    f.write(yt_cookies_env.strip())
+                print("Successfully initialized cookies.txt from raw text YT_COOKIES environment variable.")
         except Exception as e:
             print(f"Error writing cookies.txt from environment variable: {e}")
 
