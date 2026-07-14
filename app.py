@@ -706,37 +706,50 @@ async def startup_event():
             try: os.remove(file)
             except: pass
             
-    # Check for YT_COOKIES environment variable and write cookies.txt
-    yt_cookies_env = os.environ.get("YT_COOKIES")
-    if yt_cookies_env and yt_cookies_env.strip():
+    # ── Cookie initialization (priority order) ──────────────────────────────
+    # 1. Render Secret File at /etc/secrets/cookies.txt  (most reliable)
+    # 2. YT_COOKIES env var as raw Base64-encoded Netscape cookie text
+    # -------------------------------------------------------------------------
+    SECRET_FILE_PATH = "/etc/secrets/cookies.txt"
+    COOKIE_PATH = "cookies.txt"
+
+    if os.path.exists(SECRET_FILE_PATH):
         try:
-            import base64
-            # Clean up whitespace and newlines
-            clean_str = yt_cookies_env.strip().replace("\n", "").replace("\r", "").replace(" ", "")
-            try:
-                # Fix padding if missing
-                missing_padding = len(clean_str) % 4
-                if missing_padding:
-                    clean_str += '=' * (4 - missing_padding)
-                
-                # Decode as base64 without strict validation
-                decoded_bytes = base64.b64decode(clean_str)
-                decoded_text = decoded_bytes.decode("utf-8")
-                
-                # Confirm it contains cookie headers or domains
-                if "Netscape" in decoded_text or "youtube.com" in decoded_text:
-                    with open("cookies.txt", "w", encoding="utf-8") as f:
-                        f.write(decoded_text)
-                    print("Successfully decoded and initialized cookies.txt from Base64 YT_COOKIES environment variable.")
-                else:
-                    raise Exception("Decoded content does not contain cookie signatures.")
-            except Exception as decode_err:
-                # Fall back to raw text
-                with open("cookies.txt", "w", encoding="utf-8") as f:
-                    f.write(yt_cookies_env.strip())
-                print(f"Successfully initialized cookies.txt from raw text (decoding skipped/failed: {decode_err})")
+            import shutil
+            shutil.copy2(SECRET_FILE_PATH, COOKIE_PATH)
+            print(f"[COOKIES] Loaded cookies.txt from Render Secret File: {SECRET_FILE_PATH}")
         except Exception as e:
-            print(f"Error writing cookies.txt from environment variable: {e}")
+            print(f"[COOKIES] ERROR copying secret file: {e}")
+    else:
+        print(f"[COOKIES] No secret file found at {SECRET_FILE_PATH}, checking YT_COOKIES env var...")
+        yt_cookies_env = os.environ.get("YT_COOKIES", "")
+        if yt_cookies_env.strip():
+            import base64
+            raw = yt_cookies_env.strip()
+            print(f"[COOKIES] YT_COOKIES length={len(raw)}, first 40 chars: {raw[:40]!r}")
+            try:
+                # Fix missing base64 padding
+                clean = raw.replace("\n", "").replace("\r", "").replace(" ", "")
+                pad = len(clean) % 4
+                if pad:
+                    clean += "=" * (4 - pad)
+                decoded = base64.b64decode(clean).decode("utf-8")
+                if "Netscape" in decoded or "youtube.com" in decoded:
+                    with open(COOKIE_PATH, "w", encoding="utf-8") as f:
+                        f.write(decoded)
+                    print(f"[COOKIES] Successfully decoded Base64 YT_COOKIES → cookies.txt ({len(decoded)} chars)")
+                else:
+                    print(f"[COOKIES] WARNING: Decoded content doesn't look like cookies. First 80: {decoded[:80]!r}")
+                    print("[COOKIES] Falling back: writing raw env value as cookies.txt")
+                    with open(COOKIE_PATH, "w", encoding="utf-8") as f:
+                        f.write(raw)
+            except Exception as e:
+                print(f"[COOKIES] Base64 decode failed: {e!r}")
+                print("[COOKIES] Writing raw env value as cookies.txt")
+                with open(COOKIE_PATH, "w", encoding="utf-8") as f:
+                    f.write(raw)
+        else:
+            print("[COOKIES] No YT_COOKIES env var set. yt-dlp will run without cookies (may be blocked).")
 
     print("\n" + "="*80)
     print("Trade-whisper-cloud server dashboard is starting.")
