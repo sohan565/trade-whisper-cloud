@@ -706,11 +706,21 @@ async def startup_event():
             try: os.remove(file)
             except: pass
             
+    # Check for YT_COOKIES environment variable and write cookies.txt
+    yt_cookies_env = os.environ.get("YT_COOKIES")
+    if yt_cookies_env and yt_cookies_env.strip():
+        try:
+            with open("cookies.txt", "w", encoding="utf-8") as f:
+                f.write(yt_cookies_env.strip())
+            print("Successfully initialized cookies.txt from YT_COOKIES environment variable.")
+        except Exception as e:
+            print(f"Error writing cookies.txt from environment variable: {e}")
+
     print("\n" + "="*80)
     print("Trade-whisper-cloud server dashboard is starting.")
     print("Local URL: http://localhost:8000")
     
-    # Diagnostics for troubleshooting Render deployments
+    # Diagnostics for troubleshooting Render/Koyeb deployments
     try:
         version_res = subprocess.run(['yt-dlp', '--version'], capture_output=True, text=True)
         print(f"yt-dlp version: {version_res.stdout.strip()}")
