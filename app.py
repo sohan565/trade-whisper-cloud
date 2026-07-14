@@ -742,5 +742,7 @@ def shutdown_event():
             except: pass
 
 if __name__ == '__main__':
-    # Start FastAPI server on port 8000
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    import os
+    port = int(os.environ.get("PORT", 8000))
+    # Start FastAPI server
+    uvicorn.run(app, host="0.0.0.0", port=port)

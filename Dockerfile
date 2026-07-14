@@ -16,10 +16,8 @@ COPY app.py .
 COPY templates/ templates/
 COPY cookies.txt* .
 
-EXPOSE 8000
-
 # Set environment UTF-8 variables
 ENV PYTHONUNBUFFERED=1
 ENV LANG=C.UTF-8
 
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "app.py"]
