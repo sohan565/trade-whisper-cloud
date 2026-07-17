@@ -209,16 +209,21 @@ def send_telegram_sync(token: str, chat_id: str, text: str):
             print(f"Error sending raw Telegram notification: {e2}")
             return False
 
-async def send_telegram_alert(stream_title: str, asset: str, direction: str, entry_price: str, target_price: str, stop_loss: str, confidence: str, reasoning: str):
+async def send_telegram_alert(stream_title: str, stream_url: str, asset: str, direction: str, entry_price: str, target_price: str, stop_loss: str, confidence: str, reasoning: str):
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     if not token or not chat_id:
         return
         
     emoji = "🟢 LONG / BUY" if direction.upper() in ("BUY", "LONG") else "🔴 SHORT / SELL"
+    
+    # Check if stream_url is present
+    link_line = f"🔗 *Link*: {stream_url}\n" if stream_url else ""
+    
     text = (
         f"🚨 *NEW TRADE DETECTED* 🚨\n\n"
         f"📺 *Stream*: {stream_title}\n"
+        f"{link_line}"
         f"💰 *Asset*: **{asset}**\n"
         f"📈 *Direction*: **{emoji}**\n\n"
         f"🎯 *Entry*: `{entry_price}`\n"
@@ -379,6 +384,7 @@ async def run_gemini_analysis(slot: SlotState, new_text: str):
                 # Trigger Telegram notification
                 asyncio.create_task(send_telegram_alert(
                     stream_title=slot.title,
+                    stream_url=slot.url,
                     asset=data.get("asset"),
                     direction=data.get("direction"),
                     entry_price=data.get("entry_price"),
@@ -448,6 +454,7 @@ async def run_gemini_analysis(slot: SlotState, new_text: str):
             
             asyncio.create_task(send_telegram_alert(
                 stream_title=slot.title,
+                stream_url=slot.url,
                 asset=asset,
                 direction=direction,
                 entry_price=entry_val,
