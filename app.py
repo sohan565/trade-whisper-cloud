@@ -100,10 +100,10 @@ def get_video_info(url: str):
     is_live = False
     title = "YouTube Feed"
     
-    # Safe is_live check with embedded and android client extractors
+    # Safe is_live check with ios, mweb, android, web client extractors
     cmd_live = [
         'yt-dlp', '--no-cache-dir', 
-        '--extractor-args', 'youtube:player-client=web_embedded,android', 
+        '--extractor-args', 'youtube:player-client=ios,mweb,android,web', 
         '--print', '%(is_live)s', '--no-warnings'
     ]
     if os.path.exists('cookies.txt'):
@@ -120,7 +120,7 @@ def get_video_info(url: str):
     # Safe title check
     cmd_title = [
         'yt-dlp', '--no-cache-dir', 
-        '--extractor-args', 'youtube:player-client=web_embedded,android', 
+        '--extractor-args', 'youtube:player-client=ios,mweb,android,web', 
         '--print', '%(title)s', '--no-warnings'
     ]
     if os.path.exists('cookies.txt'):
@@ -141,8 +141,8 @@ def get_video_info(url: str):
 def get_direct_audio_url(url: str) -> str:
     cmd = [
         'yt-dlp', '--no-cache-dir', 
-        '--extractor-args', 'youtube:player-client=web_embedded,android', 
-        '-g', '-f', 'bestaudio'
+        '--extractor-args', 'youtube:player-client=ios,mweb,android,web', 
+        '-g', '-f', 'ba/ba*/b/best'
     ]
     if os.path.exists('cookies.txt'):
         cmd.extend(['--cookies', 'cookies.txt'])
@@ -151,8 +151,9 @@ def get_direct_audio_url(url: str) -> str:
     try:
         res = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
         if res.returncode == 0 and res.stdout.strip():
-            out = res.stdout.strip().split('\n')
-            return out[-1]
+            out = [line.strip() for line in res.stdout.strip().split('\n') if line.strip() and not line.startswith('WARNING:')]
+            if out:
+                return out[-1]
         else:
             print(f"Primary yt-dlp resolution failed (code {res.returncode}): {res.stderr.strip()}")
     except Exception as e:
@@ -161,7 +162,7 @@ def get_direct_audio_url(url: str) -> str:
     # Fallback to default format (combined formats) if bestaudio is not available
     cmd_fallback = [
         'yt-dlp', '--no-cache-dir', 
-        '--extractor-args', 'youtube:player-client=web_embedded,android', 
+        '--extractor-args', 'youtube:player-client=ios,mweb,android,web', 
         '-g'
     ]
     if os.path.exists('cookies.txt'):
@@ -171,8 +172,9 @@ def get_direct_audio_url(url: str) -> str:
     try:
         res = subprocess.run(cmd_fallback, capture_output=True, text=True, encoding='utf-8')
         if res.returncode == 0 and res.stdout.strip():
-            out = res.stdout.strip().split('\n')
-            return out[-1]
+            out = [line.strip() for line in res.stdout.strip().split('\n') if line.strip() and not line.startswith('WARNING:')]
+            if out:
+                return out[-1]
         else:
             print(f"Fallback yt-dlp resolution failed (code {res.returncode}): {res.stderr.strip()}")
     except Exception as e:
@@ -187,7 +189,7 @@ def send_telegram_sync(token: str, chat_id: str, text: str):
     payload = {
         "chat_id": chat_id,
         "text": text,
-        "parse_mode": "Markdown"
+        "parse_mode": "HTML"
     }
     data = urllib.parse.urlencode(payload).encode('utf-8')
     req = urllib.request.Request(url, data=data, method='POST')
@@ -210,6 +212,7 @@ def send_telegram_sync(token: str, chat_id: str, text: str):
             return False
 
 async def send_telegram_alert(stream_title: str, stream_url: str, asset: str, direction: str, entry_price: str, target_price: str, stop_loss: str, confidence: str, reasoning: str):
+    import html
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     if not token or not chat_id:
@@ -217,20 +220,29 @@ async def send_telegram_alert(stream_title: str, stream_url: str, asset: str, di
         
     emoji = "🟢 LONG / BUY" if direction.upper() in ("BUY", "LONG") else "🔴 SHORT / SELL"
     
+    title_clean = html.escape(str(stream_title or ""))
+    asset_clean = html.escape(str(asset or ""))
+    entry_clean = html.escape(str(entry_price or ""))
+    tp_clean = html.escape(str(target_price or ""))
+    sl_clean = html.escape(str(stop_loss or ""))
+    confidence_clean = html.escape(str(confidence or ""))
+    reasoning_clean = html.escape(str(reasoning or ""))
+    url_clean = html.escape(str(stream_url or ""))
+    
     # Check if stream_url is present
-    link_line = f"🔗 *Link*: {stream_url}\n" if stream_url else ""
+    link_line = f'🔗 <b>Link</b>: <a href="{url_clean}">{url_clean}</a>\n' if url_clean else ""
     
     text = (
-        f"🚨 *NEW TRADE DETECTED* 🚨\n\n"
-        f"📺 *Stream*: {stream_title}\n"
+        f"🚨 <b>NEW TRADE DETECTED</b> 🚨\n\n"
+        f"📺 <b>Stream</b>: {title_clean}\n"
         f"{link_line}"
-        f"💰 *Asset*: **{asset}**\n"
-        f"📈 *Direction*: **{emoji}**\n\n"
-        f"🎯 *Entry*: `{entry_price}`\n"
-        f"🚀 *Target (TP)*: `{target_price}`\n"
-        f"🛡️ *Stop Loss (SL)*: `{stop_loss}`\n\n"
-        f"🔥 *Confidence*: {confidence}\n"
-        f"🧠 *Reasoning*: _{reasoning}_"
+        f"💰 <b>Asset</b>: <b>{asset_clean}</b>\n"
+        f"📈 <b>Direction</b>: <b>{emoji}</b>\n\n"
+        f"🎯 <b>Entry</b>: <code>{entry_clean}</code>\n"
+        f"🚀 <b>Target (TP)</b>: <code>{tp_clean}</code>\n"
+        f"🛡️ <b>Stop Loss (SL)</b>: <code>{sl_clean}</code>\n\n"
+        f"🔥 <b>Confidence</b>: {confidence_clean}\n"
+        f"🧠 <b>Reasoning</b>: <i>{reasoning_clean}</i>"
     )
     
     loop = asyncio.get_running_loop()
@@ -506,17 +518,12 @@ async def slot_processing_loop(slot: SlotState):
     loop = asyncio.get_running_loop()
     chunk_id = 0
     
-    # Base temp filename for this slot
-    temp_file = f"temp_chunk_{slot.slot_id}.mp3"
-    
-    try:
-        while slot.active:
-            if slot.status != "Transcribing":
-                await asyncio.sleep(0.5)
-                continue
-                
-            start_time = time.time()
-            
+            # Determine output temp file for this chunk
+            if slot.is_live:
+                current_chunk_file = f"temp_chunk_{slot.slot_id}_{chunk_id}.mp3"
+            else:
+                current_chunk_file = f"temp_chunk_{slot.slot_id}.mp3"
+
             # Build ffmpeg command to slice 30s of audio
             ffmpeg_cmd = ['ffmpeg', '-y', '-loglevel', 'error']
             if not slot.is_live:
@@ -529,16 +536,16 @@ async def slot_processing_loop(slot: SlotState):
                 '-acodec', 'libmp3lame',
                 '-ar', '16000',
                 '-ac', '1',
-                temp_file
+                current_chunk_file
             ])
             
             # Execute ffmpeg command
             success = await loop.run_in_executor(None, run_ffmpeg, ffmpeg_cmd)
             
-            if not success or not os.path.exists(temp_file) or os.path.getsize(temp_file) == 0:
+            if not success or not os.path.exists(current_chunk_file) or os.path.getsize(current_chunk_file) == 0:
                 print(f"Slot {slot.slot_id}: Failed to capture audio chunk. Attempting URL refresh...")
-                if os.path.exists(temp_file):
-                    try: os.remove(temp_file)
+                if os.path.exists(current_chunk_file):
+                    try: os.remove(current_chunk_file)
                     except: pass
                 
                 # Try refreshing the direct audio URL (works for both live and recorded)
@@ -568,22 +575,13 @@ async def slot_processing_loop(slot: SlotState):
             
             # Handle chunk processing based on stream type
             if slot.is_live:
-                # Live streams require gapless capturing. We rename the file and hand it off
-                # to a background process task while the loop immediately starts capturing the next chunk.
-                live_temp_file = f"temp_chunk_{slot.slot_id}_{chunk_id}.mp3"
-                try:
-                    os.rename(temp_file, live_temp_file)
-                except Exception as e:
-                    print(f"Error renaming live temp file: {e}")
-                    live_temp_file = temp_file
-                    
-                asyncio.create_task(process_chunk(slot, live_temp_file, slot.offset_seconds))
+                # Hand off chunk to background process task
+                asyncio.create_task(process_chunk(slot, current_chunk_file, slot.offset_seconds))
                 slot.offset_seconds += 30.0
                 chunk_id += 1
-                # No extra sleep is needed because ffmpeg already spent 30 seconds recording the live audio!
             else:
                 # For static videos, we process synchronously inside the loop and regulate the speed
-                await process_chunk(slot, temp_file, slot.offset_seconds)
+                await process_chunk(slot, current_chunk_file, slot.offset_seconds)
                 slot.offset_seconds += 30.0
                 chunk_id += 1
                 
