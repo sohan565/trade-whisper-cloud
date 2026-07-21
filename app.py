@@ -517,7 +517,16 @@ async def process_chunk(slot: SlotState, filepath: str, offset: float):
 async def slot_processing_loop(slot: SlotState):
     loop = asyncio.get_running_loop()
     chunk_id = 0
+    current_chunk_file = ""
     
+    try:
+        while slot.active:
+            if slot.status != "Transcribing":
+                await asyncio.sleep(0.5)
+                continue
+                
+            start_time = time.time()
+            
             # Determine output temp file for this chunk
             if slot.is_live:
                 current_chunk_file = f"temp_chunk_{slot.slot_id}_{chunk_id}.mp3"
@@ -595,8 +604,8 @@ async def slot_processing_loop(slot: SlotState):
     except Exception as e:
         print(f"Error in slot {slot.slot_id} processing loop: {e}")
     finally:
-        if os.path.exists(temp_file):
-            try: os.remove(temp_file)
+        if current_chunk_file and os.path.exists(current_chunk_file):
+            try: os.remove(current_chunk_file)
             except: pass
         slot.active = False
         slot.status = "Inactive"
